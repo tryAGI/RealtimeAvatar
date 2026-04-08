@@ -11,6 +11,9 @@ using SimliSdk::Simli;
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
 
+var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
+var logger = loggerFactory.CreateLogger("AvatarDemo");
+
 app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseWebSockets();
@@ -29,7 +32,7 @@ app.Map("/ws", async (HttpContext context) =>
 
     try
     {
-        await HandleWebSocketAsync(ws, sessionId, builder.Configuration, cts);
+        await HandleWebSocketAsync(ws, sessionId, builder.Configuration, cts, logger);
     }
     finally
     {
@@ -47,8 +50,10 @@ static async Task HandleWebSocketAsync(
     WebSocket ws,
     string sessionId,
     IConfiguration config,
-    CancellationTokenSource cts)
+    CancellationTokenSource cts,
+    ILogger logger)
 {
+    logger.LogInformation("Session {SessionId} connected", sessionId);
     var buffer = new byte[64 * 1024];
     var ct = cts.Token;
 
@@ -60,7 +65,11 @@ static async Task HandleWebSocketAsync(
             result = await ws.ReceiveAsync(buffer, ct);
         }
         catch (OperationCanceledException) { break; }
-        catch (WebSocketException) { break; }
+        catch (WebSocketException ex)
+        {
+            logger.LogWarning(ex, "WebSocket connection lost for session {SessionId}", sessionId);
+            break;
+        }
 
         if (result.MessageType == WebSocketMessageType.Close)
         {
@@ -125,9 +134,9 @@ static async Task HandleConnect(
 
                 // Start frame forwarding in background
                 _ = ForwardFramesAsync(ws, avatar.ReceiveVideoFramesAsync(ct),
-                    frame => (frame.Codec == "VP8" ? (byte)0x02 : (byte)0x01, frame.Timestamp, frame.Data), ct);
+                    frame => (frame.Codec == "VP8" ? FrameType.VideoVP8 : FrameType.VideoH264, frame.Timestamp, frame.Data), ct);
                 _ = ForwardFramesAsync(ws, avatar.ReceiveAudioFramesAsync(ct),
-                    frame => ((byte)0x10, frame.DurationMs, frame.Data), ct);
+                    frame => (FrameType.AudioOpus, frame.DurationMs, frame.Data), ct);
                 break;
             }
             case "simli":
@@ -145,9 +154,9 @@ static async Task HandleConnect(
                 await SendJsonAsync(ws, new { @event = "connected", provider }, ct);
 
                 _ = ForwardFramesAsync(ws, avatar.ReceiveVideoFramesAsync(ct),
-                    frame => (frame.Codec == "VP8" ? (byte)0x02 : (byte)0x01, frame.Timestamp, frame.Data), ct);
+                    frame => (frame.Codec == "VP8" ? FrameType.VideoVP8 : FrameType.VideoH264, frame.Timestamp, frame.Data), ct);
                 _ = ForwardFramesAsync(ws, avatar.ReceiveAudioFramesAsync(ct),
-                    frame => ((byte)0x10, frame.DurationMs, frame.Data), ct);
+                    frame => (FrameType.AudioOpus, frame.DurationMs, frame.Data), ct);
                 break;
             }
             case "avatartalk":
@@ -313,6 +322,17 @@ static async Task SendJsonAsync(WebSocket ws, object data, CancellationToken ct)
     var json = JsonSerializer.Serialize(data);
     var bytes = Encoding.UTF8.GetBytes(json);
     await ws.SendAsync(bytes, WebSocketMessageType.Text, true, ct);
+}
+
+/// <summary>
+/// Named constants for the binary protocol type byte.
+/// Wire format: [1:type][4:value_be][N:data].
+/// </summary>
+static class FrameType
+{
+    public const byte VideoH264 = 0x01;
+    public const byte VideoVP8  = 0x02;
+    public const byte AudioOpus = 0x10;
 }
 
 /// <summary>
