@@ -124,8 +124,10 @@ static async Task HandleConnect(
                 await SendJsonAsync(ws, new { @event = "connected", provider }, ct);
 
                 // Start frame forwarding in background
-                _ = ForwardDIdVideoFrames(ws, avatar, ct);
-                _ = ForwardDIdAudioFrames(ws, avatar, ct);
+                _ = ForwardFramesAsync(ws, avatar.ReceiveVideoFramesAsync(ct),
+                    frame => (frame.Codec == "VP8" ? (byte)0x02 : (byte)0x01, frame.Timestamp, frame.Data), ct);
+                _ = ForwardFramesAsync(ws, avatar.ReceiveAudioFramesAsync(ct),
+                    frame => ((byte)0x10, frame.DurationMs, frame.Data), ct);
                 break;
             }
             case "simli":
@@ -142,8 +144,10 @@ static async Task HandleConnect(
 
                 await SendJsonAsync(ws, new { @event = "connected", provider }, ct);
 
-                _ = ForwardSimliVideoFrames(ws, avatar, ct);
-                _ = ForwardSimliAudioFrames(ws, avatar, ct);
+                _ = ForwardFramesAsync(ws, avatar.ReceiveVideoFramesAsync(ct),
+                    frame => (frame.Codec == "VP8" ? (byte)0x02 : (byte)0x01, frame.Timestamp, frame.Data), ct);
+                _ = ForwardFramesAsync(ws, avatar.ReceiveAudioFramesAsync(ct),
+                    frame => ((byte)0x10, frame.DurationMs, frame.Data), ct);
                 break;
             }
             case "avatartalk":
@@ -267,112 +271,34 @@ static async Task HandleDisconnect(string sessionId, WebSocket ws)
     await SendJsonAsync(ws, new { @event = "disconnected" }, CancellationToken.None);
 }
 
-// --- D-ID frame forwarding ---
+// --- Frame forwarding ---
 
-static async Task ForwardDIdVideoFrames(
-    WebSocket ws, DIdRealtimeAvatarClient avatar, CancellationToken ct)
+/// <summary>
+/// Generic helper that forwards frames from an async enumerable to a WebSocket
+/// using the binary protocol: [1:type][4:value_be][N:data].
+/// The selector lambda maps each provider-specific frame type to the common tuple.
+/// </summary>
+static async Task ForwardFramesAsync<T>(
+    WebSocket ws,
+    IAsyncEnumerable<T> frames,
+    Func<T, (byte typeByte, uint headerValue, byte[] data)> selector,
+    CancellationToken ct)
 {
     try
     {
-        await foreach (var frame in avatar.ReceiveVideoFramesAsync(ct))
+        await foreach (var frame in frames.WithCancellation(ct))
         {
             if (ws.State != WebSocketState.Open) break;
 
-            // Binary protocol: [1:type][4:timestamp_be][N:data]
-            // type: 0x01=H264, 0x02=VP8
-            byte typeByte = frame.Codec switch
-            {
-                "VP8" => 0x02,
-                _ => 0x01
-            };
-            var message = new byte[5 + frame.Data.Length];
+            var (typeByte, headerValue, data) = selector(frame);
+
+            var message = new byte[5 + data.Length];
             message[0] = typeByte;
-            message[1] = (byte)(frame.Timestamp >> 24);
-            message[2] = (byte)(frame.Timestamp >> 16);
-            message[3] = (byte)(frame.Timestamp >> 8);
-            message[4] = (byte)(frame.Timestamp);
-            frame.Data.CopyTo(message, 5);
-
-            await ws.SendAsync(message, WebSocketMessageType.Binary, true, ct);
-        }
-    }
-    catch (OperationCanceledException) { }
-    catch (WebSocketException) { }
-}
-
-static async Task ForwardDIdAudioFrames(
-    WebSocket ws, DIdRealtimeAvatarClient avatar, CancellationToken ct)
-{
-    try
-    {
-        await foreach (var frame in avatar.ReceiveAudioFramesAsync(ct))
-        {
-            if (ws.State != WebSocketState.Open) break;
-
-            // Binary protocol: [1:type][4:duration_ms_be][N:data]
-            // type: 0x10=OPUS
-            var message = new byte[5 + frame.Data.Length];
-            message[0] = 0x10;
-            message[1] = (byte)(frame.DurationMs >> 24);
-            message[2] = (byte)(frame.DurationMs >> 16);
-            message[3] = (byte)(frame.DurationMs >> 8);
-            message[4] = (byte)(frame.DurationMs);
-            frame.Data.CopyTo(message, 5);
-
-            await ws.SendAsync(message, WebSocketMessageType.Binary, true, ct);
-        }
-    }
-    catch (OperationCanceledException) { }
-    catch (WebSocketException) { }
-}
-
-// --- Simli frame forwarding ---
-
-static async Task ForwardSimliVideoFrames(
-    WebSocket ws, SimliRealtimeAvatarClient avatar, CancellationToken ct)
-{
-    try
-    {
-        await foreach (var frame in avatar.ReceiveVideoFramesAsync(ct))
-        {
-            if (ws.State != WebSocketState.Open) break;
-
-            byte typeByte = frame.Codec switch
-            {
-                "VP8" => 0x02,
-                _ => 0x01
-            };
-            var message = new byte[5 + frame.Data.Length];
-            message[0] = typeByte;
-            message[1] = (byte)(frame.Timestamp >> 24);
-            message[2] = (byte)(frame.Timestamp >> 16);
-            message[3] = (byte)(frame.Timestamp >> 8);
-            message[4] = (byte)(frame.Timestamp);
-            frame.Data.CopyTo(message, 5);
-
-            await ws.SendAsync(message, WebSocketMessageType.Binary, true, ct);
-        }
-    }
-    catch (OperationCanceledException) { }
-    catch (WebSocketException) { }
-}
-
-static async Task ForwardSimliAudioFrames(
-    WebSocket ws, SimliRealtimeAvatarClient avatar, CancellationToken ct)
-{
-    try
-    {
-        await foreach (var frame in avatar.ReceiveAudioFramesAsync(ct))
-        {
-            if (ws.State != WebSocketState.Open) break;
-
-            var message = new byte[5 + frame.Data.Length];
-            message[0] = 0x10;
-            message[1] = (byte)(frame.DurationMs >> 24);
-            message[2] = (byte)(frame.DurationMs >> 16);
-            message[3] = (byte)(frame.DurationMs >> 8);
-            message[4] = (byte)(frame.DurationMs);
-            frame.Data.CopyTo(message, 5);
+            message[1] = (byte)(headerValue >> 24);
+            message[2] = (byte)(headerValue >> 16);
+            message[3] = (byte)(headerValue >> 8);
+            message[4] = (byte)headerValue;
+            data.CopyTo(message, 5);
 
             await ws.SendAsync(message, WebSocketMessageType.Binary, true, ct);
         }
