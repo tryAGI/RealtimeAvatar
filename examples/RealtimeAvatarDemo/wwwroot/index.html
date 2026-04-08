@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realtime Avatar Demo - tryAGI</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<header class="header">
+    <h1>Realtime Avatar <span class="accent">Demo</span></h1>
+    <p class="subtitle">
+        Server-side WebRTC avatar streaming with C# / ASP.NET Core / SIPSorcery.
+        The backend connects to avatar providers via WebRTC, receives encoded
+        video+audio frames, and forwards them to the browser over a WebSocket.
+    </p>
+    <span class="badge">Server-Side WebRTC &mdash; Unique in the C# Ecosystem</span>
+</header>
+
+<main class="provider-grid">
+
+    <!-- D-ID Card -->
+    <section class="card" id="card-did">
+        <div class="card-header">
+            <span class="provider-tag webrtc">WebRTC</span>
+            <h2>D-ID</h2>
+            <p class="desc">
+                Text-driven avatar. Type a message and the agent responds with
+                lip-synced video and TTS audio via server-side WebRTC.
+            </p>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label for="did-agent-id">Agent ID</label>
+                <input type="text" id="did-agent-id" placeholder="agt_xxxx">
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-primary" id="did-connect" onclick="connectProvider('did')">Connect</button>
+                <button class="btn btn-danger" id="did-disconnect" onclick="disconnectProvider('did')" disabled>Disconnect</button>
+            </div>
+            <div class="status-bar">
+                <span class="status-dot" id="did-status-dot"></span>
+                <span id="did-status-text">Disconnected</span>
+            </div>
+            <div class="media-container">
+                <canvas id="did-canvas" width="640" height="360"></canvas>
+                <div class="media-placeholder" id="did-placeholder">
+                    <span class="icon">&#9654;</span>
+                    <span>Connect to see avatar video</span>
+                </div>
+            </div>
+            <div class="input-row">
+                <input type="text" id="did-text" placeholder="Type a message for the avatar..."
+                       onkeydown="if(event.key==='Enter')sendText('did')">
+                <button class="btn btn-primary" onclick="sendText('did')">Send</button>
+            </div>
+            <div class="log-area" id="did-log"></div>
+        </div>
+    </section>
+
+    <!-- Simli Card -->
+    <section class="card" id="card-simli">
+        <div class="card-header">
+            <span class="provider-tag webrtc">WebRTC</span>
+            <h2>Simli</h2>
+            <p class="desc">
+                Audio-driven avatar. Use the microphone to send PCM16 audio
+                and receive lip-synced video via server-side WebRTC.
+            </p>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label for="simli-face-id">Face ID</label>
+                <input type="text" id="simli-face-id" placeholder="e.g. 5514e24d-6086-46a3-ace4-6a7264e5cb7c">
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-primary" id="simli-connect" onclick="connectProvider('simli')">Connect</button>
+                <button class="btn btn-danger" id="simli-disconnect" onclick="disconnectProvider('simli')" disabled>Disconnect</button>
+            </div>
+            <div class="status-bar">
+                <span class="status-dot" id="simli-status-dot"></span>
+                <span id="simli-status-text">Disconnected</span>
+            </div>
+            <div class="media-container">
+                <canvas id="simli-canvas" width="640" height="360"></canvas>
+                <div class="media-placeholder" id="simli-placeholder">
+                    <span class="icon">&#127908;</span>
+                    <span>Connect and use mic to stream audio</span>
+                </div>
+            </div>
+            <div class="btn-row" style="justify-content: center;">
+                <button class="btn-mic" id="simli-mic" onclick="toggleMic('simli')" title="Toggle microphone">
+                    &#127908;
+                </button>
+                <span style="font-size:0.8rem; color:var(--text-secondary); align-self:center;">
+                    Click to start/stop microphone capture
+                </span>
+            </div>
+            <div class="log-area" id="simli-log"></div>
+        </div>
+    </section>
+
+    <!-- AvatarTalk Card -->
+    <section class="card" id="card-avatartalk">
+        <div class="card-header">
+            <span class="provider-tag rest">REST API</span>
+            <h2>AvatarTalk</h2>
+            <p class="desc">
+                Text-to-video via REST. Send text, the backend calls the
+                AvatarTalk API, and returns a generated MP4 video URL.
+            </p>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label for="avatartalk-avatar">Avatar</label>
+                <select id="avatartalk-avatar">
+                    <option value="european_man">European Man</option>
+                    <option value="european_woman">European Woman</option>
+                    <option value="african_man">African Man</option>
+                    <option value="african_woman">African Woman</option>
+                    <option value="japanese_man">Japanese Man</option>
+                    <option value="japanese_woman">Japanese Woman</option>
+                    <option value="arab_man">Arab Man</option>
+                    <option value="arab_woman">Arab Woman</option>
+                    <option value="mexican_man">Mexican Man</option>
+                    <option value="mexican_woman">Mexican Woman</option>
+                    <option value="colombian_woman">Colombian Woman</option>
+                    <option value="iranian_man">Iranian Man</option>
+                    <option value="old_european_woman">Old European Woman</option>
+                    <option value="old_japanese_man">Old Japanese Man</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="avatartalk-emotion">Emotion</label>
+                <select id="avatartalk-emotion">
+                    <option value="neutral">Neutral</option>
+                    <option value="happy">Happy</option>
+                    <option value="serious">Serious</option>
+                </select>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-primary" id="avatartalk-connect" onclick="connectProvider('avatartalk')">Connect</button>
+                <button class="btn btn-danger" id="avatartalk-disconnect" onclick="disconnectProvider('avatartalk')" disabled>Disconnect</button>
+            </div>
+            <div class="status-bar">
+                <span class="status-dot" id="avatartalk-status-dot"></span>
+                <span id="avatartalk-status-text">Disconnected</span>
+            </div>
+            <div class="media-container">
+                <video id="avatartalk-video" controls style="display:none;"></video>
+                <div class="media-placeholder" id="avatartalk-placeholder">
+                    <span class="icon">&#127916;</span>
+                    <span>Send text to generate avatar video</span>
+                </div>
+            </div>
+            <div class="input-row">
+                <input type="text" id="avatartalk-text" placeholder="Type text for the avatar..."
+                       onkeydown="if(event.key==='Enter')sendText('avatartalk')">
+                <button class="btn btn-primary" onclick="sendText('avatartalk')">Send</button>
+            </div>
+            <div class="log-area" id="avatartalk-log"></div>
+        </div>
+    </section>
+
+</main>
+
+<footer class="footer">
+    <a href="https://github.com/tryAGI/RealtimeAvatar" target="_blank">tryAGI/RealtimeAvatar</a>
+    &mdash; Server-side WebRTC avatar streaming with C# and SIPSorcery
+</footer>
+
+<script src="/js/app.js"></script>
+
+</body>
+</html>
