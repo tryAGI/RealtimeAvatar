@@ -86,7 +86,7 @@ static async Task HandleWebSocketAsync(
             switch (action)
             {
                 case "connect":
-                    await HandleConnect(ws, sessionId, config, msg, cts);
+                    await HandleConnect(ws, sessionId, config, msg, cts, logger);
                     break;
                 case "send_text":
                     await HandleSendText(ws, sessionId, msg, ct);
@@ -105,11 +105,14 @@ static async Task HandleWebSocketAsync(
             await HandleSendAudio(sessionId, buffer.AsMemory(0, result.Count), ct);
         }
     }
+
+    logger.LogInformation("Session {SessionId} disconnected", sessionId);
 }
 
 static async Task HandleConnect(
     WebSocket ws, string sessionId,
-    IConfiguration config, JsonElement msg, CancellationTokenSource cts)
+    IConfiguration config, JsonElement msg, CancellationTokenSource cts,
+    ILogger logger)
 {
     var provider = msg.GetProperty("provider").GetString()!;
     var ct = cts.Token;
@@ -134,9 +137,9 @@ static async Task HandleConnect(
 
                 // Start frame forwarding in background
                 _ = ForwardFramesAsync(ws, avatar.ReceiveVideoFramesAsync(ct),
-                    frame => (frame.Codec == "VP8" ? FrameType.VideoVP8 : FrameType.VideoH264, frame.Timestamp, frame.Data), ct);
+                    frame => (frame.Codec == "VP8" ? FrameType.VideoVP8 : FrameType.VideoH264, frame.Timestamp, frame.Data), ct, logger);
                 _ = ForwardFramesAsync(ws, avatar.ReceiveAudioFramesAsync(ct),
-                    frame => (FrameType.AudioOpus, frame.DurationMs, frame.Data), ct);
+                    frame => (FrameType.AudioOpus, frame.DurationMs, frame.Data), ct, logger);
                 break;
             }
             case "simli":
@@ -154,9 +157,9 @@ static async Task HandleConnect(
                 await SendJsonAsync(ws, new { @event = "connected", provider }, ct);
 
                 _ = ForwardFramesAsync(ws, avatar.ReceiveVideoFramesAsync(ct),
-                    frame => (frame.Codec == "VP8" ? FrameType.VideoVP8 : FrameType.VideoH264, frame.Timestamp, frame.Data), ct);
+                    frame => (frame.Codec == "VP8" ? FrameType.VideoVP8 : FrameType.VideoH264, frame.Timestamp, frame.Data), ct, logger);
                 _ = ForwardFramesAsync(ws, avatar.ReceiveAudioFramesAsync(ct),
-                    frame => (FrameType.AudioOpus, frame.DurationMs, frame.Data), ct);
+                    frame => (FrameType.AudioOpus, frame.DurationMs, frame.Data), ct, logger);
                 break;
             }
             case "avatartalk":
@@ -174,6 +177,7 @@ static async Task HandleConnect(
     }
     catch (Exception ex)
     {
+        logger.LogWarning(ex, "Failed to connect provider {Provider} for session {SessionId}", provider, sessionId);
         await SendJsonAsync(ws, new { @event = "error", message = ex.Message }, ct);
     }
 }
@@ -291,7 +295,8 @@ static async Task ForwardFramesAsync<T>(
     WebSocket ws,
     IAsyncEnumerable<T> frames,
     Func<T, (byte typeByte, uint headerValue, byte[] data)> selector,
-    CancellationToken ct)
+    CancellationToken ct,
+    ILogger logger)
 {
     try
     {
@@ -313,7 +318,10 @@ static async Task ForwardFramesAsync<T>(
         }
     }
     catch (OperationCanceledException) { }
-    catch (WebSocketException) { }
+    catch (WebSocketException ex)
+    {
+        logger.LogWarning(ex, "WebSocket disconnected during frame forwarding");
+    }
 }
 
 static async Task SendJsonAsync(WebSocket ws, object data, CancellationToken ct)
