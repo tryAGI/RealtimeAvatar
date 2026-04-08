@@ -3,16 +3,12 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>tryAGI.RealtimeAvatar</RootNamespace>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <LangVersion>preview</LangVersion>
   </PropertyGroup>
 
   <PropertyGroup Label="Nuget">
     <PackageId>tryAGI.RealtimeAvatar.Abstractions</PackageId>
     <Description>Shared abstractions for realtime avatar streaming providers (D-ID, Simli, HeyGen, etc.).</Description>
     <PackageTags>avatar;realtime;webrtc;streaming;ai;abstraction;dotnet</PackageTags>
-    <Authors>tryAGI</Authors>
     <PackageProjectUrl>https://github.com/tryAGI/RealtimeAvatar</PackageProjectUrl>
     <RepositoryUrl>https://github.com/tryAGI/RealtimeAvatar</RepositoryUrl>
   </PropertyGroup>
