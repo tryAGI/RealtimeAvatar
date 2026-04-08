@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>tryAGI.RealtimeAvatar.Abstractions</id>
+    <version>1.0.0</version>
+    <authors>tryAGI</authors>
+    <projectUrl>https://github.com/tryAGI/RealtimeAvatar</projectUrl>
+    <description>Shared abstractions for realtime avatar streaming providers (D-ID, Simli, HeyGen, etc.).</description>
+    <tags>avatar realtime webrtc streaming ai abstraction dotnet</tags>
+    <repository type="git" url="https://github.com/tryAGI/RealtimeAvatar" commit="81f222605e1ecaaadadebac7dbab2d37eb352066" />
+    <dependencies>
+      <group targetFramework="net10.0" />
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="/Users/havendv/GitHub/tryAGI/RealtimeAvatar/src/libs/RealtimeAvatar/bin/Release/net10.0/RealtimeAvatar.dll" target="lib/net10.0/RealtimeAvatar.dll" />
+  </files>
+</package>

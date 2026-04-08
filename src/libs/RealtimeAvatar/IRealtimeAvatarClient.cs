@@ -1,4 +1,6 @@
 #pragma warning disable CS3001 // Argument type is not CLS-compliant
+#pragma warning disable CS3002 // Return type is not CLS-compliant
+#pragma warning disable CS3003 // Type is not CLS-compliant
 #pragma warning disable CA1819 // Properties should not return arrays
 
 namespace tryAGI.RealtimeAvatar;
