@@ -271,6 +271,8 @@ function handleBinaryMessage(provider, data) {
     } else if (typeByte === FRAME_TYPE.AUDIO_OPUS) {
         // Audio frame
         handleAudioFrame(provider, value, payload);
+    } else {
+        console.warn(`Unknown frame type: 0x${typeByte.toString(16).padStart(2, '0')}`);
     }
 }
 
