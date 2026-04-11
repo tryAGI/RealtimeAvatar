@@ -40,6 +40,9 @@ const audioQueues = { did: [], simli: [], avatartalk: [] };
 // Video frame timestamp counter (for WebCodecs)
 const videoTimestamps = { did: 0, simli: 0, avatartalk: 0 };
 
+// Rate-limit unknown frame type warnings (once per second per type)
+const _lastUnknownFrameWarn = new Map();
+
 // ---------------------------------------------------------------------------
 // WebCodecs availability check
 // ---------------------------------------------------------------------------
@@ -272,9 +275,14 @@ function handleBinaryMessage(provider, data) {
         // Audio frame
         handleAudioFrame(provider, value, payload);
     } else {
-        const hex = '0x' + typeByte.toString(16).padStart(2, '0');
-        console.warn(`Unknown frame type: ${hex}`);
-        log(provider, `Unknown frame type: ${hex}`, 'log-error');
+        const now = Date.now();
+        const lastWarn = _lastUnknownFrameWarn.get(typeByte) || 0;
+        if (now - lastWarn > 1000) {
+            _lastUnknownFrameWarn.set(typeByte, now);
+            const hex = '0x' + typeByte.toString(16).padStart(2, '0');
+            console.warn(`Unknown frame type: ${hex}`);
+            log(provider, `Unknown frame type: ${hex}`, 'log-warning');
+        }
     }
 }
 
