@@ -5,14 +5,24 @@
 //   Browser <--WebSocket--> ASP.NET Core Backend <--WebRTC/REST--> Providers
 //
 // Binary protocol (backend -> browser):
-//   Video: [1:type][4:timestamp_be][N:data]  type: 0x01=H264, 0x02=VP8
-//   Audio: [1:type][4:value_be][N:data]      type: 0x10=OPUS
+//   Video: [1:type][4:timestamp_be][N:data]  type: FRAME_TYPE.VIDEO_H264, VIDEO_VP8
+//   Audio: [1:type][4:value_be][N:data]      type: FRAME_TYPE.AUDIO_OPUS
 //
 // The browser uses WebCodecs API (VideoDecoder + AudioDecoder) to decode
 // the encoded frames received over the WebSocket.
 // =============================================================================
 
 "use strict";
+
+// ---------------------------------------------------------------------------
+// Binary protocol frame types (must match backend FrameType class)
+// ---------------------------------------------------------------------------
+
+const FRAME_TYPE = Object.freeze({
+    VIDEO_H264: 0x01,
+    VIDEO_VP8:  0x02,
+    AUDIO_OPUS: 0x10,
+});
 
 // ---------------------------------------------------------------------------
 // State per provider
@@ -255,10 +265,10 @@ function handleBinaryMessage(provider, data) {
     const value = view.getUint32(1, false); // big-endian
     const payload = new Uint8Array(data, 5);
 
-    if (typeByte === 0x01 || typeByte === 0x02) {
+    if (typeByte === FRAME_TYPE.VIDEO_H264 || typeByte === FRAME_TYPE.VIDEO_VP8) {
         // Video frame
         handleVideoFrame(provider, typeByte, value, payload);
-    } else if (typeByte === 0x10) {
+    } else if (typeByte === FRAME_TYPE.AUDIO_OPUS) {
         // Audio frame
         handleAudioFrame(provider, value, payload);
     }
@@ -296,8 +306,8 @@ function handleVideoFrame(provider, typeByte, timestamp, payload) {
     const s = state[provider];
     if (!s.videoDecoder || s.videoDecoder.state === "closed") return;
 
-    const isH264 = typeByte === 0x01;
-    const isVP8 = typeByte === 0x02;
+    const isH264 = typeByte === FRAME_TYPE.VIDEO_H264;
+    const isVP8 = typeByte === FRAME_TYPE.VIDEO_VP8;
 
     if (isH264) {
         handleH264Frame(provider, timestamp, payload);
