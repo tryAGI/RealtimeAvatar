@@ -378,6 +378,10 @@ body {
     color: var(--error);
 }
 
+.log-area .log-warning {
+    color: #f59e0b;
+}
+
 .log-area .log-success {
     color: var(--success);
 }
