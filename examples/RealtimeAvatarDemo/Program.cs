@@ -143,9 +143,9 @@ static async Task HandleConnect(
 
                 // Start frame forwarding in background
                 _ = ForwardFramesAsync(ws, avatar.ReceiveVideoFramesAsync(ct),
-                    frame => (frame.Codec == "VP8" ? FrameType.VideoVP8 : FrameType.VideoH264, frame.Timestamp, frame.Data), sessionId, ct, logger);
+                    frame => (frame.Codec == "VP8" ? FrameType.VideoVP8 : FrameType.VideoH264, frame.Timestamp, frame.Data), sessionId, "did", ct, logger);
                 _ = ForwardFramesAsync(ws, avatar.ReceiveAudioFramesAsync(ct),
-                    frame => (FrameType.AudioOpus, frame.DurationMs, frame.Data), sessionId, ct, logger);
+                    frame => (FrameType.AudioOpus, frame.DurationMs, frame.Data), sessionId, "did", ct, logger);
                 break;
             }
             case "simli":
@@ -163,9 +163,9 @@ static async Task HandleConnect(
                 await SendJsonAsync(ws, new { @event = "connected", provider }, ct);
 
                 _ = ForwardFramesAsync(ws, avatar.ReceiveVideoFramesAsync(ct),
-                    frame => (frame.Codec == "VP8" ? FrameType.VideoVP8 : FrameType.VideoH264, frame.Timestamp, frame.Data), sessionId, ct, logger);
+                    frame => (frame.Codec == "VP8" ? FrameType.VideoVP8 : FrameType.VideoH264, frame.Timestamp, frame.Data), sessionId, "simli", ct, logger);
                 _ = ForwardFramesAsync(ws, avatar.ReceiveAudioFramesAsync(ct),
-                    frame => (FrameType.AudioOpus, frame.DurationMs, frame.Data), sessionId, ct, logger);
+                    frame => (FrameType.AudioOpus, frame.DurationMs, frame.Data), sessionId, "simli", ct, logger);
                 break;
             }
             case "avatartalk":
@@ -302,6 +302,7 @@ static async Task ForwardFramesAsync<T>(
     IAsyncEnumerable<T> frames,
     Func<T, (byte typeByte, uint headerValue, byte[] data)> selector,
     string sessionId,
+    string provider,
     CancellationToken ct,
     ILogger logger)
 {
@@ -327,7 +328,7 @@ static async Task ForwardFramesAsync<T>(
     catch (OperationCanceledException) { }
     catch (WebSocketException ex)
     {
-        logger.LogWarning(ex, "WebSocket disconnected during frame forwarding for session {SessionId}", sessionId);
+        logger.LogWarning(ex, "WebSocket disconnected during {Provider} frame forwarding for session {SessionId}", provider, sessionId);
     }
 }
 
