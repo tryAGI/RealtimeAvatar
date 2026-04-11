@@ -306,6 +306,7 @@ static async Task ForwardFramesAsync<T>(
     CancellationToken ct,
     ILogger logger)
 {
+    var frameCount = 0;
     try
     {
         await foreach (var frame in frames.WithCancellation(ct))
@@ -323,12 +324,17 @@ static async Task ForwardFramesAsync<T>(
             data.CopyTo(message, 5);
 
             await ws.SendAsync(message, WebSocketMessageType.Binary, true, ct);
+            frameCount++;
         }
     }
     catch (OperationCanceledException) { }
     catch (WebSocketException ex)
     {
         logger.LogWarning(ex, "WebSocket disconnected during {Provider} frame forwarding for session {SessionId}", provider, sessionId);
+    }
+    finally
+    {
+        logger.LogInformation("Forwarded {FrameCount} {Provider} frames for session {SessionId}", frameCount, provider, sessionId);
     }
 }
 
