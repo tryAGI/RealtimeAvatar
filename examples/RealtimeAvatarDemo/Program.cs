@@ -143,9 +143,9 @@ static async Task HandleConnect(
 
                 // Start frame forwarding in background
                 _ = ForwardFramesAsync(ws, avatar.ReceiveVideoFramesAsync(ct),
-                    frame => (frame.Codec == "VP8" ? FrameType.VideoVP8 : FrameType.VideoH264, frame.Timestamp, frame.Data), sessionId, "did", ct, logger);
+                    frame => (frame.Codec == "VP8" ? FrameType.VideoVP8 : FrameType.VideoH264, frame.Timestamp, frame.Data), sessionId, "did:video", ct, logger);
                 _ = ForwardFramesAsync(ws, avatar.ReceiveAudioFramesAsync(ct),
-                    frame => (FrameType.AudioOpus, frame.DurationMs, frame.Data), sessionId, "did", ct, logger);
+                    frame => (FrameType.AudioOpus, frame.DurationMs, frame.Data), sessionId, "did:audio", ct, logger);
                 break;
             }
             case "simli":
@@ -163,9 +163,9 @@ static async Task HandleConnect(
                 await SendJsonAsync(ws, new { @event = "connected", provider }, ct);
 
                 _ = ForwardFramesAsync(ws, avatar.ReceiveVideoFramesAsync(ct),
-                    frame => (frame.Codec == "VP8" ? FrameType.VideoVP8 : FrameType.VideoH264, frame.Timestamp, frame.Data), sessionId, "simli", ct, logger);
+                    frame => (frame.Codec == "VP8" ? FrameType.VideoVP8 : FrameType.VideoH264, frame.Timestamp, frame.Data), sessionId, "simli:video", ct, logger);
                 _ = ForwardFramesAsync(ws, avatar.ReceiveAudioFramesAsync(ct),
-                    frame => (FrameType.AudioOpus, frame.DurationMs, frame.Data), sessionId, "simli", ct, logger);
+                    frame => (FrameType.AudioOpus, frame.DurationMs, frame.Data), sessionId, "simli:audio", ct, logger);
                 break;
             }
             case "avatartalk":
