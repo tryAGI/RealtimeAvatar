@@ -272,7 +272,9 @@ function handleBinaryMessage(provider, data) {
         // Audio frame
         handleAudioFrame(provider, value, payload);
     } else {
-        console.warn(`Unknown frame type: 0x${typeByte.toString(16).padStart(2, '0')}`);
+        const hex = '0x' + typeByte.toString(16).padStart(2, '0');
+        console.warn(`Unknown frame type: ${hex}`);
+        log(provider, `Unknown frame type: ${hex}`, 'log-error');
     }
 }
 
