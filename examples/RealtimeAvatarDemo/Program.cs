@@ -44,6 +44,12 @@ app.Map("/ws", async (HttpContext context) =>
     }
 });
 
+app.MapGet("/health", () => Results.Ok(new
+{
+    status = "healthy",
+    activeSessions = AvatarSessions.Sessions.Count,
+}));
+
 app.Run();
 
 static async Task HandleWebSocketAsync(
@@ -295,6 +301,7 @@ static async Task ForwardFramesAsync<T>(
     WebSocket ws,
     IAsyncEnumerable<T> frames,
     Func<T, (byte typeByte, uint headerValue, byte[] data)> selector,
+    string sessionId,
     CancellationToken ct,
     ILogger logger)
 {
@@ -320,7 +327,7 @@ static async Task ForwardFramesAsync<T>(
     catch (OperationCanceledException) { }
     catch (WebSocketException ex)
     {
-        logger.LogWarning(ex, "WebSocket disconnected during frame forwarding");
+        logger.LogWarning(ex, "WebSocket disconnected during frame forwarding for session {SessionId}", sessionId);
     }
 }
 
