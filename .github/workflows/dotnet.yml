@@ -16,6 +16,7 @@ jobs:
     uses: tryAGI/workflows/.github/workflows/dotnet-sdk-build-test-publish.yml@main
     with:
       enable-caching: false
+      auto-stable-release: true
       additional-test-arguments: '--logger GitHubActions'
     secrets:
       nuget-key: ${{ secrets.NUGET_KEY }}
